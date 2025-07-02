@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acortador de URLs SaaS</title>
+    <!-- Incluye Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuración de la fuente Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Gris claro de fondo */
+        }
+        /* Estilo para el botón de copiar */
+        .copy-button {
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+        .copy-button:active {
+            transform: scale(0.98);
+        }
+        /* Estilo para el mensaje de error/éxito */
+        .message-box {
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: none; /* Oculto por defecto */
+        }
+        .message-box.success {
+            background-color: #d1fae5; /* green-100 */
+            color: #065f46; /* green-800 */
+            border: 1px solid #a7f3d0; /* green-300 */
+        }
+        .message-box.error {
+            background-color: #fee2e2; /* red-100 */
+            color: #991b1b; /* red-800 */
+            border: 1px solid #fca5a5; /* red-300 */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl border border-gray-200">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Acortador de URLs SaaS</h1>
+        <p class="text-center text-gray-600 mb-8">Acorta tus URLs largas de forma rápida y sencilla.</p>
+
+        <!-- Área de entrada de la URL larga -->
+        <div class="mb-6">
+            <label for="longUrlInput" class="block text-gray-700 text-sm font-medium mb-2">
+                URL Larga:
+            </label>
+            <input
+                type="url"
+                id="longUrlInput"
+                placeholder="https://ejemplo.com/tu-url-larga-aqui"
+                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ease-in-out text-gray-800 placeholder-gray-400"
+                required
+            >
+        </div>
+
+        <!-- Botón para acortar la URL -->
+        <button
+            id="shortenButton"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+        >
+            Acortar URL
+        </button>
+
+        <!-- Área de visualización de la URL acortada -->
+        <div id="shortenedUrlContainer" class="mt-8 bg-gray-100 p-4 rounded-lg border border-gray-300 flex items-center justify-between hidden">
+            <input
+                type="text"
+                id="shortenedUrlOutput"
+                class="flex-grow bg-transparent text-gray-800 text-lg font-mono outline-none border-none pointer-events-none"
+                readonly
+            >
+            <button
+                id="copyButton"
+                class="ml-4 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg copy-button focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50"
+            >
+                Copiar
+            </button>
+        </div>
+
+        <!-- Mensaje de estado (éxito/error) -->
+        <div id="messageBox" class="message-box"></div>
+
+        <!-- Sección de información adicional -->
+        <div class="mt-8 text-center text-gray-500 text-sm">
+            <p>Utiliza nuestra potente API de FastAPI para generar URLs cortas.</p>
+            <p class="mt-2">Desarrollado con HTML, Tailwind CSS y JavaScript.</p>
+        </div>
+        <div class="mt-4 text-center text-gray-400 text-xs">
+            <p>© 2025 Todos los derechos reservados.</p>
+    </div>
+
+    <script>
+        // Referencias a los elementos del DOM
+        const longUrlInput = document.getElementById('longUrlInput');
+        const shortenButton = document.getElementById('shortenButton');
+        const shortenedUrlContainer = document.getElementById('shortenedUrlContainer');
+        const shortenedUrlOutput = document.getElementById('shortenedUrlOutput');
+        const copyButton = document.getElementById('copyButton');
+        const messageBox = document.getElementById('messageBox');
+
+        // URL base de tu backend FastAPI
+        // IMPORTANTE: Si ejecutas FastAPI en un servidor diferente o en un puerto diferente,
+        // DEBES ACTUALIZAR esta URL. Por ejemplo, si lo despliegas en Heroku, sería tu-app.herokuapp.com
+        const FASTAPI_BACKEND_URL = "http://127.0.0.1:8000"; // Cambia esto si tu backend está en otro lugar
+
+        /**
+         * Muestra un mensaje en la caja de mensajes.
+         * @param {string} message - El texto del mensaje.
+         * @param {string} type - El tipo de mensaje ('success' o 'error').
+         */
+        function showMessage(message, type) {
+            messageBox.textContent = message;
+            messageBox.className = `message-box ${type}`;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000); // Oculta el mensaje después de 3 segundos
+        }
+
+        /**
+         * Maneja el evento de click del botón "Acortar URL".
+         */
+        shortenButton.addEventListener('click', async () => {
+            const longUrl = longUrlInput.value.trim();
+
+            if (!longUrl) {
+                showMessage("Por favor, introduce una URL larga.", "error");
+                return;
+            }
+
+            // Validar formato de URL básico
+            try {
+                new URL(longUrl); // Intenta crear un objeto URL para validar
+            } catch (e) {
+                showMessage("La URL introducida no es válida. Asegúrate de incluir 'http://' o 'https://'.", "error");
+                return;
+            }
+
+            try {
+                // Realiza la solicitud POST al backend de FastAPI
+                const response = await fetch(`${FASTAPI_BACKEND_URL}/shorten`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json' // Para asegurar que esperamos JSON
+                    },
+                    body: JSON.stringify({ long_url: longUrl })
+                });
+
+                if (!response.ok) {
+                    // Si la respuesta no es 2xx, lanza un error
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `Error del servidor: ${response.status}`);
+                }
+
+                const data = await response.json();
+                shortenedUrlOutput.value = data.short_url;
+                shortenedUrlContainer.classList.remove('hidden'); // Muestra el contenedor de la URL acortada
+                showMessage("¡URL acortada exitosamente!", "success");
+
+            } catch (error) {
+                console.error('Error al acortar la URL:', error);
+                showMessage(`Error: ${error.message}`, "error");
+                shortenedUrlContainer.classList.add('hidden'); // Oculta el contenedor en caso de error
+            }
+        });
+
+        /**
+         * Copia la URL acortada al portapapeles.
+         */
+        copyButton.addEventListener('click', () => {
+            const shortenedUrl = shortenedUrlOutput.value;
+            if (shortenedUrl) {
+                const tempInput = document.createElement('textarea');
+                tempInput.value = shortenedUrl;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand('copy'); // Método de copia para compatibilidad con iframes
+                document.body.removeChild(tempInput);
+                showMessage("¡URL copiada al portapapeles!", "success");
+            }
+        });
+    </script>
+</body>
+</html>
